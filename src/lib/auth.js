@@ -9,7 +9,11 @@ function getFromEmail() {
   return process.env.FROM_EMAIL || 'onboarding@resend.dev';
 }
 function getAppUrl() {
-  return process.env.APP_URL || 'http://localhost:3000';
+  let url = process.env.APP_URL || 'http://localhost:3000';
+  // Guard against APP_URL being set without a scheme (e.g. "example.com"),
+  // which would produce a relative, unclickable link in the email.
+  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+  return url.replace(/\/+$/, ''); // strip any trailing slash
 }
 
 // Tokens are random 32-byte secrets. We email the raw token but store only
