@@ -27,7 +27,7 @@ export async function findOrCreateUser(email) {
   const { rows } = await pool.query(
     `INSERT INTO users (email) VALUES ($1)
      ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
-     RETURNING id, email, role`,
+     RETURNING id, email, role, verified_at`,
     [normalized]
   );
   return rows[0];
@@ -37,7 +37,11 @@ export async function sendMagicLink(email) {
   const user = await findOrCreateUser(email);
   const raw = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + TOKEN_TTL_MINUTES * 60 * 1000);
-  const link = `${getAppUrl()}/auth/verify?token=${raw}`;
+  // Build the URL with URLSearchParams so the query string is always well-formed
+  // (a raw template with a stray byte could corrupt the "?token=" separator).
+  const verifyUrl = new URL('/auth/verify', getAppUrl());
+  verifyUrl.searchParams.set('token', raw);
+  const link = verifyUrl.toString();
 
   // Test mode: persist token and surface link without sending.
   if (process.env.AUTH_TEST_MODE === '1') {
@@ -56,7 +60,7 @@ export async function sendMagicLink(email) {
   const { data, error } = await resend.emails.send({
     from: getFromEmail(),
     to: user.email,
-    subject: 'Your one-time access link',
+    subject: 'Your OneID sign-in link',
     html: `
       <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px">
         <h2 style="margin:0 0 8px">Sign in</h2>

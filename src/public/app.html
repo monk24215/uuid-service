@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Keyed</title>
+<title>OneID</title>
 <style>
   :root {
     --ink: #16181d;
@@ -101,7 +101,7 @@
 <body>
   <header>
     <div class="bar">
-      <div class="brand"><span class="dot"></span> KEYED</div>
+      <div class="brand"><span class="dot"></span> 1ID</div>
       <div class="who">
         <span id="email"></span>
         <a id="logout">Sign out</a>
@@ -187,7 +187,7 @@
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Upload failed.');
       msg.className = 'msg ok';
-      msg.textContent = `Done. ${d.rowCount.toLocaleString()} rows keyed on "${d.emailColumn}".`;
+      msg.textContent = `Done. ${d.rowCount.toLocaleString()} rows assigned an ID, matched on "${d.emailColumn}".`;
       await loadMe(); await loadUploads();
     } catch (e) {
       msg.className = 'msg err';

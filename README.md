@@ -1,9 +1,11 @@
-# Keyed — CSV → UUID assignment tool
+# OneID — one durable identity per record, across services
 
 Passwordless web app: users sign in via a one-time email link (Resend),
 upload a CSV (≤5000 rows) containing an email column, and export the same
-CSV with a unique RFC 4122 v4 UUID appended to every row. Free role allows
-5 uploads; limits are role-based and expandable.
+CSV with a unique RFC 4122 v4 UUID appended to every row. Each row's UUID is
+stable and never reused — the foundation for a shared identity that can follow
+a person across multiple services. Free role allows 5 uploads; limits are
+role-based and expandable.
 
 ## Stack
 - Node.js + Express
@@ -16,7 +18,7 @@ CSV with a unique RFC 4122 v4 UUID appended to every row. Free role allows
 | `DATABASE_URL`   | yes      | Provided by Railway Postgres plugin              |
 | `RESEND_API_KEY` | yes      | From resend.com                                  |
 | `FROM_EMAIL`     | yes      | A verified Resend sender, e.g. no-reply@you.com  |
-| `APP_URL`        | yes      | Public app URL, e.g. https://keyed.up.railway.app|
+| `APP_URL`        | yes      | Public app URL, e.g. https://oneid.wiredhowse.app|
 | `SESSION_SECRET` | yes      | Long random string (openssl rand -hex 32)        |
 | `PORT`           | no       | Railway sets this automatically                  |
 

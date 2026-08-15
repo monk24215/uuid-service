@@ -68,8 +68,12 @@ export async function initSchema() {
       id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       email        TEXT UNIQUE NOT NULL,
       role         TEXT NOT NULL DEFAULT 'free' REFERENCES roles(name),
+      verified_at  TIMESTAMPTZ,
       created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
     );
+
+    -- Migration for tables created before verified_at existed.
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
 
     CREATE TABLE IF NOT EXISTS login_tokens (
       token_hash   TEXT PRIMARY KEY,
