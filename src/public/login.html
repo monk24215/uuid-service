@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Keyed — sign in</title>
+<style>
+  :root {
+    --ink: #16181d;
+    --paper: #f7f6f3;
+    --line: #d9d6cd;
+    --muted: #6b6a63;
+    --accent: #2f5d50;
+    --accent-ink: #1c3a31;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+  }
+  .card {
+    width: 100%;
+    max-width: 400px;
+  }
+  .brand {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-size: 15px;
+    color: var(--accent-ink);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 40px;
+  }
+  .brand .dot {
+    width: 9px; height: 9px; border-radius: 2px;
+    background: var(--accent);
+    display: inline-block;
+  }
+  h1 {
+    font-size: 26px;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    margin: 0 0 8px;
+  }
+  p.sub { color: var(--muted); margin: 0 0 28px; font-size: 15px; line-height: 1.5; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+  input[type=email] {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font-size: 15px;
+    background: #fff;
+    transition: border-color .15s;
+  }
+  input[type=email]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(47,93,80,.12);
+  }
+  button {
+    width: 100%;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  button:hover { background: var(--accent-ink); }
+  button:disabled { opacity: .6; cursor: default; }
+  .msg { margin-top: 16px; font-size: 14px; line-height: 1.5; }
+  .msg.err { color: #a4342b; }
+  .msg.ok {
+    color: var(--accent-ink);
+    background: rgba(47,93,80,.08);
+    border: 1px solid rgba(47,93,80,.2);
+    padding: 14px;
+    border-radius: var(--radius);
+  }
+  .foot {
+    margin-top: 40px;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand"><span class="dot"></span> KEYED</div>
+    <h1>Sign in</h1>
+    <p class="sub">Enter your email and we'll send a one-time link. No password to remember.</p>
+
+    <form id="form">
+      <label for="email">Email address</label>
+      <input id="email" type="email" name="email" placeholder="you@company.com" autocomplete="email" required />
+      <button id="submit" type="submit">Send my link</button>
+    </form>
+    <div id="msg" class="msg" role="status" aria-live="polite"></div>
+
+    <div class="foot">CSV → unique IDs, per RFC&nbsp;4122</div>
+  </main>
+
+<script>
+  const form = document.getElementById('form');
+  const btn = document.getElementById('submit');
+  const msg = document.getElementById('msg');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('email').value.trim();
+    msg.className = 'msg'; msg.textContent = '';
+    btn.disabled = true; btn.textContent = 'Sending…';
+    try {
+      const r = await fetch('/auth/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || 'Something went wrong.');
+      msg.className = 'msg ok';
+      msg.textContent = 'Check your inbox. Your link is on its way and works for 15 minutes.';
+      form.reset();
+    } catch (err) {
+      msg.className = 'msg err';
+      msg.textContent = err.message;
+    } finally {
+      btn.disabled = false; btn.textContent = 'Send my link';
+    }
+  });
+</script>
+</body>
+</html>

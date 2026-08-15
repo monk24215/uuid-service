@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Keyed</title>
+<style>
+  :root {
+    --ink: #16181d;
+    --paper: #f7f6f3;
+    --card: #ffffff;
+    --line: #e2dfd6;
+    --line-strong: #d9d6cd;
+    --muted: #6b6a63;
+    --accent: #2f5d50;
+    --accent-ink: #1c3a31;
+    --radius: 10px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+  }
+  header {
+    border-bottom: 1px solid var(--line-strong);
+    background: var(--paper);
+    position: sticky; top: 0; z-index: 5;
+  }
+  .bar {
+    max-width: 860px; margin: 0 auto; padding: 16px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .brand {
+    font-family: var(--mono); font-weight: 600; font-size: 15px;
+    color: var(--accent-ink); display: flex; align-items: center; gap: 8px;
+  }
+  .brand .dot { width: 9px; height: 9px; border-radius: 2px; background: var(--accent); }
+  .who { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 14px; }
+  .who a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line-strong); cursor: pointer; }
+  .who a:hover { color: var(--ink); }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  .usage {
+    display: flex; align-items: baseline; gap: 10px;
+    font-family: var(--mono); font-size: 13px; color: var(--muted);
+    margin-bottom: 24px;
+  }
+  .usage b { color: var(--ink); font-size: 15px; }
+
+  .drop {
+    border: 1.5px dashed var(--line-strong);
+    border-radius: 14px;
+    background: var(--card);
+    padding: 44px 24px;
+    text-align: center;
+    transition: border-color .15s, background .15s;
+    cursor: pointer;
+  }
+  .drop.hover { border-color: var(--accent); background: rgba(47,93,80,.03); }
+  .drop h2 { margin: 0 0 6px; font-size: 17px; letter-spacing: -0.01em; }
+  .drop p { margin: 0; color: var(--muted); font-size: 14px; }
+  .drop .cta { color: var(--accent); font-weight: 600; }
+  input[type=file] { display: none; }
+
+  .msg { margin: 18px 0 0; font-size: 14px; }
+  .msg.err { color: #a4342b; }
+  .msg.ok { color: var(--accent-ink); }
+
+  h3.section {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin: 40px 0 14px; font-weight: 700;
+  }
+  .list { display: flex; flex-direction: column; gap: 10px; }
+  .row {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 16px 18px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .row .name { font-weight: 600; font-size: 15px; word-break: break-all; }
+  .row .meta { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .row .actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .btn {
+    padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--line-strong); background: #fff; color: var(--ink);
+    text-decoration: none; display: inline-flex; align-items: center;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn.primary:hover { background: var(--accent-ink); }
+  .btn.ghost { border-color: transparent; color: var(--muted); }
+  .btn.ghost:hover { color: #a4342b; border-color: transparent; }
+
+  .empty { color: var(--muted); font-size: 14px; padding: 8px 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <div class="brand"><span class="dot"></span> KEYED</div>
+      <div class="who">
+        <span id="email"></span>
+        <a id="logout">Sign out</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="usage">
+      <span><b id="used">0</b> of <b id="max">5</b> uploads used</span>
+      <span id="rowlimit"></span>
+    </div>
+
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload a CSV file">
+      <h2>Drop a CSV, or <span class="cta">browse</span></h2>
+      <p>Must include an email column. Up to <span id="dropmax">5000</span> rows.</p>
+      <input type="file" id="file" accept=".csv,text/csv" />
+    </div>
+    <div id="msg" class="msg" role="status" aria-live="polite"></div>
+
+    <h3 class="section">Your uploads</h3>
+    <div class="list" id="list"><div class="empty">Loading…</div></div>
+  </main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let limits = { maxUploads: 5, maxRowsPerUpload: 5000 };
+
+  async function loadMe() {
+    const r = await fetch('/api/me');
+    if (r.status === 401) { location.href = '/'; return; }
+    const d = await r.json();
+    $('email').textContent = d.user.email;
+    limits = d.limits;
+    $('max').textContent = limits.maxUploads;
+    $('used').textContent = d.usage.uploads;
+    $('dropmax').textContent = limits.maxRowsPerUpload.toLocaleString();
+    $('rowlimit').textContent = '· ' + limits.maxRowsPerUpload.toLocaleString() + ' rows each';
+  }
+
+  async function loadUploads() {
+    const r = await fetch('/api/uploads');
+    const { uploads } = await r.json();
+    const list = $('list');
+    if (!uploads.length) {
+      list.innerHTML = '<div class="empty">No uploads yet. Add your first CSV above.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    for (const u of uploads) {
+      const el = document.createElement('div');
+      el.className = 'row';
+      const when = new Date(u.created_at).toLocaleDateString(undefined,
+        { month: 'short', day: 'numeric', year: 'numeric' });
+      el.innerHTML = `
+        <div>
+          <div class="name">${escapeHtml(u.filename)}</div>
+          <div class="meta">${u.row_count.toLocaleString()} rows · key column "${escapeHtml(u.email_column)}" · ${when}</div>
+        </div>
+        <div class="actions">
+          <a class="btn primary" href="/api/uploads/${u.id}/export">Export + UUIDs</a>
+          <button class="btn ghost" data-del="${u.id}">Delete</button>
+        </div>`;
+      list.appendChild(el);
+    }
+    list.querySelectorAll('[data-del]').forEach((b) =>
+      b.addEventListener('click', () => del(b.getAttribute('data-del'))));
+  }
+
+  async function del(id) {
+    if (!confirm('Delete this upload? This frees a slot and removes its stored records.')) return;
+    const r = await fetch('/api/uploads/' + id, { method: 'DELETE' });
+    if (r.ok) { await loadMe(); await loadUploads(); }
+  }
+
+  async function send(file) {
+    const msg = $('msg');
+    msg.className = 'msg'; msg.textContent = 'Processing ' + file.name + '…';
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = await fetch('/api/uploads', { method: 'POST', body: fd });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Upload failed.');
+      msg.className = 'msg ok';
+      msg.textContent = `Done. ${d.rowCount.toLocaleString()} rows keyed on "${d.emailColumn}".`;
+      await loadMe(); await loadUploads();
+    } catch (e) {
+      msg.className = 'msg err';
+      msg.textContent = e.message;
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // Wiring
+  const drop = $('drop'), file = $('file');
+  drop.addEventListener('click', () => file.click());
+  drop.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); file.click(); } });
+  file.addEventListener('change', () => { if (file.files[0]) send(file.files[0]); file.value = ''; });
+  ['dragover', 'dragenter'].forEach((ev) =>
+    drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('hover'); }));
+  ['dragleave', 'drop'].forEach((ev) =>
+    drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('hover'); }));
+  drop.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) send(f); });
+  $('logout').addEventListener('click', async () => {
+    await fetch('/auth/logout', { method: 'POST' }); location.href = '/';
+  });
+
+  loadMe(); loadUploads();
+</script>
+</body>
+</html>
