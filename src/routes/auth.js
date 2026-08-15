@@ -34,6 +34,16 @@ authRouter.post('/request', requestLimiter, async (req, res) => {
   }
 });
 
+authRouter.get('/verify/:token', async (req, res) => {
+  const user = await verifyMagicLink(req.params.token);
+  if (!user) {
+    return res.status(400).send(renderError('This link is invalid or has expired.'));
+  }
+  setSession(res, user.id);
+  res.redirect('/app');
+});
+
+// Backward-compatible: also accept ?token= for any links already in inboxes.
 authRouter.get('/verify', async (req, res) => {
   const user = await verifyMagicLink(req.query.token);
   if (!user) {

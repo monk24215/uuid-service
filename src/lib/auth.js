@@ -37,11 +37,11 @@ export async function sendMagicLink(email) {
   const user = await findOrCreateUser(email);
   const raw = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + TOKEN_TTL_MINUTES * 60 * 1000);
-  // Build the URL with URLSearchParams so the query string is always well-formed
-  // (a raw template with a stray byte could corrupt the "?token=" separator).
-  const verifyUrl = new URL('/auth/verify', getAppUrl());
-  verifyUrl.searchParams.set('token', raw);
-  const link = verifyUrl.toString();
+  // Put the token in the URL PATH, not a ?token= query param. Email quoted-
+  // printable encoding treats "=" as an escape char, and "=" immediately
+  // followed by hex (our token) gets mangled in transit. A path segment has
+  // no "=", so it survives encoding intact.
+  const link = `${getAppUrl()}/auth/verify/${raw}`;
 
   // Test mode: persist token and surface link without sending.
   if (process.env.AUTH_TEST_MODE === '1') {
