@@ -7,12 +7,15 @@ export const authRouter = express.Router();
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Throttle link requests to blunt abuse / email bombing.
+// Throttle link requests to blunt abuse / email bombing. skipFailedRequests
+// means failed sends (bad domain, transient errors) and validation errors do
+// NOT count toward the limit — a user isn't locked out by our own failures.
 const requestLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  skipFailedRequests: true,
   message: { error: 'Too many requests. Please wait a few minutes.' },
 });
 

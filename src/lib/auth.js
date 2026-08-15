@@ -37,21 +37,21 @@ export async function sendMagicLink(email) {
   const user = await findOrCreateUser(email);
   const raw = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + TOKEN_TTL_MINUTES * 60 * 1000);
-
-  await pool.query(
-    `INSERT INTO login_tokens (token_hash, user_id, expires_at)
-     VALUES ($1, $2, $3)`,
-    [hashToken(raw), user.id, expiresAt]
-  );
-
   const link = `${getAppUrl()}/auth/verify?token=${raw}`;
 
-  // In test mode, skip the network send and surface the link for the harness.
+  // Test mode: persist token and surface link without sending.
   if (process.env.AUTH_TEST_MODE === '1') {
+    await pool.query(
+      `INSERT INTO login_tokens (token_hash, user_id, expires_at) VALUES ($1, $2, $3)`,
+      [hashToken(raw), user.id, expiresAt]
+    );
     console.log('TEST_MAGIC_LINK', link);
     return { ok: true, testLink: link };
   }
 
+  // Send the email FIRST. Only if it succeeds do we persist the token, so a
+  // failed send never leaves an orphaned token row and never half-registers
+  // the user. If the send fails we throw, and the caller reports the error.
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { data, error } = await resend.emails.send({
     from: getFromEmail(),
@@ -80,6 +80,12 @@ export async function sendMagicLink(email) {
     console.error('Resend send error:', JSON.stringify(error));
     throw new Error(`Resend send failed: ${error.message || error.name || 'unknown'}`);
   }
+
+  // Send succeeded — now it's safe to persist the token.
+  await pool.query(
+    `INSERT INTO login_tokens (token_hash, user_id, expires_at) VALUES ($1, $2, $3)`,
+    [hashToken(raw), user.id, expiresAt]
+  );
   console.log('Magic link sent:', data?.id, 'to', user.email);
 
   return { ok: true, id: data?.id };
