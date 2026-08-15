@@ -2,11 +2,15 @@ import crypto from 'crypto';
 import { Resend } from 'resend';
 import { pool } from './db.js';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const TOKEN_TTL_MINUTES = 15;
-const FROM_EMAIL = process.env.FROM_EMAIL || 'onboarding@resend.dev';
-const APP_URL = process.env.APP_URL || 'http://localhost:3000';
+
+// Read sender/URL at call time (not module load) so env is always current.
+function getFromEmail() {
+  return process.env.FROM_EMAIL || 'onboarding@resend.dev';
+}
+function getAppUrl() {
+  return process.env.APP_URL || 'http://localhost:3000';
+}
 
 // Tokens are random 32-byte secrets. We email the raw token but store only
 // its SHA-256 hash, so a DB leak never exposes a usable login link.
@@ -36,7 +40,7 @@ export async function sendMagicLink(email) {
     [hashToken(raw), user.id, expiresAt]
   );
 
-  const link = `${APP_URL}/auth/verify?token=${raw}`;
+  const link = `${getAppUrl()}/auth/verify?token=${raw}`;
 
   // In test mode, skip the network send and surface the link for the harness.
   if (process.env.AUTH_TEST_MODE === '1') {
@@ -44,8 +48,9 @@ export async function sendMagicLink(email) {
     return { ok: true, testLink: link };
   }
 
-  await resend.emails.send({
-    from: FROM_EMAIL,
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { data, error } = await resend.emails.send({
+    from: getFromEmail(),
     to: user.email,
     subject: 'Your one-time access link',
     html: `
@@ -65,7 +70,15 @@ export async function sendMagicLink(email) {
       </div>`,
   });
 
-  return { ok: true };
+  // The Resend SDK returns { data, error } and does NOT throw on API failures.
+  // If we don't inspect error here, a failed send silently looks successful.
+  if (error) {
+    console.error('Resend send error:', JSON.stringify(error));
+    throw new Error(`Resend send failed: ${error.message || error.name || 'unknown'}`);
+  }
+  console.log('Magic link sent:', data?.id, 'to', user.email);
+
+  return { ok: true, id: data?.id };
 }
 
 // Verify consumes the token atomically: it must exist, be unexpired, and unused.

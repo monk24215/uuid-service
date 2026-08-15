@@ -50,11 +50,26 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
-initSchema()
-  .then(() => {
-    app.listen(PORT, () => console.log(`Listening on :${PORT}`));
-  })
-  .catch((e) => {
-    console.error('Schema init failed:', e);
-    process.exit(1);
-  });
+// Start listening immediately so the platform health check at /healthz always
+// gets an answer, even if the database is still coming up. Then initialize the
+// schema with retries in the background rather than crashing the process — on a
+// platform where services boot in any order, a brief DB delay shouldn't take
+// down the whole deploy.
+app.listen(PORT, () => console.log(`Listening on :${PORT}`));
+
+async function initWithRetry(attempt = 1) {
+  const MAX_ATTEMPTS = 10;
+  try {
+    await initSchema();
+    console.log('Schema ready.');
+  } catch (e) {
+    console.error(`Schema init failed (attempt ${attempt}/${MAX_ATTEMPTS}):`, e.message);
+    if (attempt < MAX_ATTEMPTS) {
+      const delayMs = Math.min(1000 * 2 ** (attempt - 1), 15000);
+      setTimeout(() => initWithRetry(attempt + 1), delayMs);
+    } else {
+      console.error('Schema init giving up after max attempts. Fix DATABASE_URL and redeploy.');
+    }
+  }
+}
+initWithRetry();
